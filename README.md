@@ -59,7 +59,7 @@ python paper_agent.py [SOURCE] [OPTIONS]
 | :--- | :--- | :--- |
 | `--arxiv` | Fetch papers from arXiv. | (Exclusive) |
 | `--biorxiv` | Fetch papers from bioRxiv. | (Exclusive) |
-| `--cats` | List of categories to search (e.g., `cs.CV`). | `cs.AI cs.LG` |
+| `--cats` | List of categories to search (e.g., `cs.CV`). | None |
 | `--kw` | List of keywords to filter by (in Title/Abstract). | None (All) |
 | `--limit` | Maximum number of papers to analyze. | 10 |
 | `--days` | Number of past days to search. | 1 |
