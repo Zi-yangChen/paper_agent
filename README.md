@@ -22,8 +22,9 @@ It generates a clean **CSV** database and a formatted **Markdown** report daily,
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/paper-agent.git
-cd paper-agent
+git clone https://github.com/Zi-yangChen/paper_agent.git
+git clone 
+cd paper_agent
 ```
 
 ### 2. Install Dependencies
