@@ -27,7 +27,7 @@ cd paper_agent
 ```
 
 ### 2. Install Dependencies
-Make sure you have Python 3.8+ installed.
+Make sure you have Python 3.10+ installed.
 ```bash
 pip install requests pandas openai arxiv
 ```
