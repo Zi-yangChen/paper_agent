@@ -82,7 +82,7 @@ python paper_agent.py --arxiv --cats cs.CV --kw "data augmentation" --limit 5 --
 ### 3. Biology Research (English Report)
 Search bioRxiv for "Neuroscience" papers mentioning "Transformer" from the last 3 days, with an English summary.
 ```bash
-python paper_agent.py --biorxiv --cats Neuroscience --kw transformer --days 3 --lang en --limit 20
+python paper_agent.py --biorxiv --kw "transformer" "Neuroscience" --days 3 --lang en --limit 20
 ```
 
 ### 4. Generative AI Tracking
