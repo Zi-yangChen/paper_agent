@@ -74,16 +74,25 @@ def check_keywords(text, keywords):
     return False
 
 def get_arxiv_papers(categories, max_results, days_back, keywords=None):
-    """ Fetch papers from Arxiv based on categories, date, and keywords. """
+    """ Fetch papers from Arxiv ensuring server-side keyword search. """
     print(f"[Arxiv] Searching {categories} | Keywords: {keywords} | Target Limit: {max_results}...")
     
-    query_str = " OR ".join([f"cat:{cat}" for cat in categories]) if categories else "cat:cs.AI"
-    search_limit = max_results * 10 if keywords else max_results * 2
+    cat_query = " OR ".join([f"cat:{cat}" for cat in categories]) if categories else "cat:cs.AI"
+    
+    final_query = f"({cat_query})"
+    if keywords:
+        kw_query = " OR ".join([f'all:"{k}"' for k in keywords])
+        final_query = f"({cat_query}) AND ({kw_query})"
+    
+    print(f"[Debug] Arxiv Query: {final_query}")
+
+    search_limit = max_results * 2 
     
     search = arxiv.Search(
-        query=query_str,
+        query=final_query,
         max_results=search_limit, 
-        sort_by=arxiv.SortCriterion.SubmittedDate
+        sort_by=arxiv.SortCriterion.SubmittedDate,
+        sort_order=arxiv.SortOrder.Descending
     )
 
     results = []
@@ -95,7 +104,7 @@ def get_arxiv_papers(categories, max_results, days_back, keywords=None):
             continue
             
         text_content = f"{result.title} {result.summary}"
-        if not check_keywords(text_content, keywords):
+        if keywords and not check_keywords(text_content, keywords):
             continue
 
         results.append({
@@ -106,29 +115,55 @@ def get_arxiv_papers(categories, max_results, days_back, keywords=None):
             "date": result.published.strftime("%Y-%m-%d"),
             "authors": ", ".join([a.name for a in result.authors[:3]])
         })
+        
         count += 1
         if count >= max_results:
             break
             
+    print(f"[Arxiv] Retrieved {len(results)} valid papers.")
     return results
 
 def get_biorxiv_papers(categories, max_results, days_back, keywords=None):
-    """ Fetch papers from BioRxiv with filtering. """
+    """ 
+    Fetch papers from BioRxiv. 
+    NOTE: BioRxiv API does not support server-side keyword search.
+    We must fetch all metadata for the date range and filter locally.
+    This function implements pagination to scan enough papers.
+    """
     print(f"[BioRxiv] Fetching recent {days_back} days | Keywords: {keywords}...")
     
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=days_back)
     
-    url = f"https://api.biorxiv.org/details/biorxiv/{start_date}/{end_date}/0/json"
+    papers = []
+    cursor = 0
+    batch_size = 100 
+    total_scanned = 0
     
-    try:
-        response = requests.get(url)
-        data = response.json()
+    while True:
+        url = f"https://api.biorxiv.org/details/biorxiv/{start_date}/{end_date}/{cursor}/json"
         
-        papers = []
-        if 'collection' in data:
-            for item in data['collection']:
+        try:
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code != 200:
+                print(f"  [BioRxiv] Error: Status {response.status_code}")
+                break
+                
+            data = response.json()
+            
+            if 'collection' not in data or not data['collection']:
+                print(f"  [BioRxiv] No more papers found at cursor {cursor}.")
+                break
+            
+            current_batch = data['collection']
+            total_available = int(data['messages'][0]['total']) 
+            
+            for item in current_batch:
+                total_scanned += 1
+
                 if categories:
+
                     if item['category'].lower() not in [c.lower() for c in categories]:
                         continue
                 
@@ -140,7 +175,7 @@ def get_biorxiv_papers(categories, max_results, days_back, keywords=None):
                     "source": "bioRxiv",
                     "title": item['title'],
                     "abstract": item['abstract'],
-                    "url": f"https://www.biorxiv.org/content/{item['doi']}",
+                    "url": f"https://www.biorxiv.org/content/{item['doi']}v1", 
                     "date": item['date'],
                     "authors": item['authors'],
                     "category": item['category']
@@ -148,11 +183,23 @@ def get_biorxiv_papers(categories, max_results, days_back, keywords=None):
                 
                 if len(papers) >= max_results:
                     break
-        return papers
-    except Exception as e:
-        print(f"Error fetching BioRxiv: {e}")
-        return []
+            
+            print(f"  [BioRxiv] Scanned {total_scanned}/{total_available} papers. Found {len(papers)} matches...")
 
+            if len(papers) >= max_results:
+                break
+                
+            cursor += len(current_batch)
+            if cursor >= total_available:
+                print("  [BioRxiv] Reached end of data.")
+                break
+                
+        except Exception as e:
+            print(f"  [BioRxiv] Exception: {e}")
+            break
+            
+    return papers
+    
 def analyze_paper(paper, lang='cn'):
     """ Call LLM to analyze paper """
     template = PROMPTS[lang]
